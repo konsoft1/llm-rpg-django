@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    {% load static %}
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character Creation</title>
+    <link rel="stylesheet" href="{% static 'game/style.css' %}">
+    <link rel="icon" href="{% static 'game/favicon.ico' %}" type="image/x-icon">
+	<link href="https://fonts.googleapis.com/css2?family=Lora:wght@400;700&display=swap" rel="stylesheet">
+	<script src="https://cdnjs.cloudflare.com/ajax/libs/marked/13.0.2/marked.min.js"></script>
+</head>
+<body class="dark-theme">
+    <div class="content">
+        <h1>Character Creation!</h1>
+        <div class="conversation-container" id="conversation">
+            <!-- Messages will be appended here -->
+        </div>
+        <div id="start-input-container">
+            <input type="text" id="character-name-input" placeholder="Enter your character's name" size="30">
+            <button id="start-button" onclick="startCharacterCreation()">Create Character</button>
+        </div>
+        <div id="explore-input-container">
+            <input type="text" id="explore-character-name-input" placeholder="Enter your character's name to explore" size="30">
+            <button id="explore-button" onclick="initializeExploration()">Explore with Character</button>
+        </div>
+        <div class="sticky-prompt" id="message-input-container">
+            <textarea id="message-input" placeholder="Enter your message"></textarea>
+            <button style="font-size:18px" onclick="handleMessage()">Send</button> <small>or cmd/ctrl+enter</small>
+        </div>
+    </div>
+    <div class="sidebar" id="game-state">
+        <h2>Game State</h2>
+        <div id="character-details"></div>
+        <div id="theme-toggle-container">
+            <div id="theme-toggle" class="toggle-switch" onclick="toggleTheme()">
+                <div class="sun"></div>
+                <div class="toggle-handle"></div>
+                <div class="moon"></div>
+            </div>
+        </div>
+    </div>
+    <script>
+        function toggleTheme() {
+            const body = document.body;
+            const themeToggle = document.getElementById('theme-toggle');
+            const isDarkMode = body.classList.contains('dark-theme');
+
+            if (isDarkMode) {
+                body.classList.remove('dark-theme');
+                body.classList.add('light-theme');
+                themeToggle.classList.remove('dark-mode');
+            } else {
+                body.classList.remove('light-theme');
+                body.classList.add('dark-theme');
+                themeToggle.classList.add('dark-mode');
+            }
+        }
+
+        // Initialize the theme toggle icon based on the current theme
+        document.addEventListener('DOMContentLoaded', () => {
+            const body = document.body;
+            const themeToggle = document.getElementById('theme-toggle');
+            if (body.classList.contains('dark-theme')) {
+                themeToggle.classList.add('dark-mode');
+            }
+        });
+
+        async function startCharacterCreation() {
+            const characterNameInput = document.getElementById('character-name-input');
+            const characterName = characterNameInput.value;
+
+            if (characterName.trim() === '') {
+                alert("Please enter a character name.");
+                return;
+            }
+
+            try {
+                console.log("Starting character creation with name:", characterName);
+
+                const response = await fetch('/api/handle_character_creation', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ name: characterName })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    console.error("Error response data:", errorData);
+                    throw new Error(errorData.message || 'Network response was not ok');
+                }
+
+                const data = await response.json();
+                console.log("Response data:", data);
+
+                const conversationDiv = document.getElementById('conversation');
+                const assistantMessageDiv = document.createElement('div');
+                assistantMessageDiv.classList.add('message', 'assistant-message');
+                const parsedMessage = marked.parse(data.message.split('```json')[0]); // Split and remove JSON part
+                assistantMessageDiv.innerHTML = parsedMessage;
+                conversationDiv.appendChild(assistantMessageDiv);
+
+                document.getElementById('start-input-container').style.display = 'none';
+                document.getElementById('explore-input-container').style.display = 'none';  <!-- Hide exploration input after starting creation -->
+                document.getElementById('message-input-container').style.display = 'block';
+
+                // Initialize game state with character name
+                updateGameState(JSON.stringify({ name: characterName }));
+            } catch (error) {
+                console.error("Error starting character creation:", error);
+                alert(error.message);
+            }
+        }
+		
+		
+		async function handleButtonClick(value) {
+		    try {
+		        const response = await fetch('/api/handle_character_creation', {
+		            method: 'POST',
+		            headers: {
+		                'Content-Type': 'application/json'
+		            },
+		            body: JSON.stringify({ message: value })
+		        });
+
+		        const data = await response.json();
+		        updateGameState(JSON.stringify(data.character_creation));
+
+		        const conversationDiv = document.getElementById('conversation');
+		        const assistantMessageDiv = document.createElement('div');
+		        assistantMessageDiv.classList.add('message', 'assistant-message');
+		        const parsedMessage = marked.parse(data.message);
+		        assistantMessageDiv.innerHTML = parsedMessage;
+		        conversationDiv.appendChild(assistantMessageDiv);
+
+		        if (data.buttons) {
+		            const buttonsContainer = document.createElement('div');
+		            buttonsContainer.classList.add('buttons-container');
+		            data.buttons.forEach(button => {
+		                const buttonElement = document.createElement('button');
+		                buttonElement.textContent = button.label;
+		                buttonElement.onclick = () => handleButtonClick(button.value);
+		                buttonsContainer.appendChild(buttonElement);
+		            });
+		            conversationDiv.appendChild(buttonsContainer);
+		        }
+
+		        conversationDiv.scrollTop = conversationDiv.scrollHeight;
+		    } catch (error) {
+		        console.error("Error handling button click:", error);
+		    }
+		}
+		
+		
+		function filterJsonFromMessage(message) {
+		    // Remove all instances of 'json' and backticks
+		    message = message.replace(/```json/g, '').replace(/```/g, '');
+
+		    // Replace colons with dots if the next non-whitespace character is a backtick or a '{'
+		    message = message.replace(/:(\s*[\{\`])/g, '.$1');
+
+		    const jsonStartIndex = message.indexOf('{\n');
+		    const jsonEndIndex = message.indexOf('\n}', jsonStartIndex) + 2;
+
+		    if (jsonStartIndex !== -1 && jsonEndIndex !== -1) {
+		        const textBeforeJson = message.slice(0, jsonStartIndex);
+		        const textAfterJson = message.slice(jsonEndIndex);
+		        return textBeforeJson + textAfterJson;
+		    } else {
+		        return message;
+		    }
+		}
+		
+		// Function to highlight NPC names in the text
+		function highlightNpcNames(text, npcNames) {
+		    npcNames.forEach(npc => {
+		        const nameParts = npc.split(' '); // Split the NPC name into parts
+		        const regexParts = nameParts.map(part => `\\b${part}\\b`).join('|'); // Create regex parts
+		        const regex = new RegExp(regexParts, 'gi'); // Combine into a single regex
+
+		        text = text.replace(regex, match => `<span class="npc-name">${match}</span>`); // Highlight matches
+		    });
+		    return text;
+		}
+		
+		// Function to highlight quest names in the text
+		function highlightQuestNames(text, questNames) {
+		    console.log("Quest names to highlight:", questNames); // Debug log
+		    questNames.forEach(quest => {
+		        const regex = new RegExp(`\\b${quest}\\b`, 'gi'); // Create a regex to match the whole quest name
+		        text = text.replace(regex, match => {
+		            console.log("Highlighting quest:", match); // Debug log
+		            return `<span class="quest-name">${match}</span>`;
+		        });
+		    });
+		    return text;
+		}
+		
+		/**
+         * Sends the user's message to the backend server (for sending to the assistant),
+         * receives the assistant's response, and updates the front end.
+         */
+		async function handleMessage(isButtonClick = false) {
+		    const messageInput = document.getElementById('message-input');
+		    const message = messageInput.value;
+
+		    if (message.trim() === '') {
+		        return;
+		    }
+
+		    const conversationDiv = document.getElementById('conversation');
+		    if (!isButtonClick) {  // Only append user message if it's not a button click
+		        const userMessageDiv = document.createElement('div');
+		        userMessageDiv.classList.add('message', 'user-message');
+		        const userMessageContent = document.createElement('p');
+		        userMessageContent.textContent = `You: ${message}`;
+		        userMessageDiv.appendChild(userMessageContent);
+		        conversationDiv.appendChild(userMessageDiv);
+		    }
+
+		    // Clear the textarea immediately
+		    messageInput.value = '';
+
+		    // Create and show the loading spinner
+		    const loadingSpinner = document.createElement('div');
+		    loadingSpinner.id = 'loading-spinner';
+		    loadingSpinner.classList.add('loading-spinner');
+		    for (let i = 0; i < 3; i++) {
+		        const spark = document.createElement('div');
+		        spark.classList.add('spark');
+		        loadingSpinner.appendChild(spark);
+		    }
+		    conversationDiv.appendChild(loadingSpinner);
+
+		    // Scroll to the bottom
+		    conversationDiv.scrollTop = conversationDiv.scrollHeight;
+
+		    try {
+		        console.log("Sending message:", message);
+
+		        const response = await fetch('/api/handle_character_creation', {
+		            method: 'POST',
+		            headers: {
+		                'Content-Type': 'application/json'
+		            },
+		            body: JSON.stringify({ message })
+		        });
+
+		        if (!response.ok) {
+		            throw new Error('Network response was not ok');
+		        }
+
+		        const data = await response.json();
+		        console.log("Response data:", data);
+
+		        // Ensure the game state is updated with the latest character data
+		        if (data.character_creation) {
+		            updateGameState(JSON.stringify(data.character_creation));
+		        }
+
+				// Access NPC and quest names
+				const npcNames = data.npcs ? data.npcs.map(npc => npc.name) : [];
+				const questNames = data.current_player_quests ? data.current_player_quests.map(quest => quest.title) : [];
+
+				console.log("NPC names:", npcNames); // Debug log
+				console.log("Quest names:", questNames); // Debug log
+
+				// Extract and filter out the JSON part
+				const textMessage = filterJsonFromMessage(data.message);
+
+				// Highlight NPC and quest names in the assistant's message
+				let highlightedMessage = highlightNpcNames(textMessage, npcNames);
+				highlightedMessage = highlightQuestNames(highlightedMessage, questNames);
+
+		        const assistantMessageDiv = document.createElement('div');
+		        assistantMessageDiv.classList.add('message', 'assistant-message');
+		        const parsedMessage = marked.parse(highlightedMessage);
+		        assistantMessageDiv.innerHTML = parsedMessage;
+		        conversationDiv.insertBefore(assistantMessageDiv, loadingSpinner);
+
+		        // Display buttons if present in the response
+		        if (data.buttons) {
+		            const buttonsContainer = document.createElement('div');
+		            buttonsContainer.classList.add('buttons-container');
+		            data.buttons.forEach(button => {
+		                const buttonElement = document.createElement('button');
+		                buttonElement.textContent = button.label;
+		                buttonElement.onclick = () => handleButtonClick(button.value);
+		                buttonsContainer.appendChild(buttonElement);
+		            });
+		            conversationDiv.insertBefore(buttonsContainer, loadingSpinner);
+		        }
+
+		        // Scroll to the bottom again to ensure the new message is visible
+		        conversationDiv.scrollTop = conversationDiv.scrollHeight;
+
+		    } catch (error) {
+		        console.error("Error sending message:", error);
+		    } finally {
+		        // Remove the loading spinner
+		        conversationDiv.removeChild(loadingSpinner);
+		    }
+		}
+		
+		// END OF handleMessage
+		
+		
+		
+	    // Add back the event listener for Enter + Cmd/Ctrl to send message
+	    document.getElementById('message-input').addEventListener('keydown', function (e) {
+	        if ((e.key === 'Enter' && e.metaKey) || (e.key === 'Enter' && e.ctrlKey)) {
+	            handleMessage();
+	        }
+	    });
+
+		function updateGameState(message) {
+		    const characterDetailsDiv = document.getElementById('character-details');
+
+		    try {
+		        const startIndex = message.indexOf('{');
+		        const endIndex = message.lastIndexOf('}') + 1;
+		        const jsonResponse = message.slice(startIndex, endIndex);
+		        const characterData = JSON.parse(jsonResponse);
+
+		        // Detailed logging to identify which field is causing the issue
+		        console.log("Parsed character data:", characterData);
+
+		        const name = characterData.name || 'Unknown';
+		        console.log("Name:", name);
+
+		        const race = characterData.race || 'Unknown';
+		        console.log("Race:", race);
+
+		        const charClass = characterData.class || 'Unknown';
+		        console.log("Class:", charClass);
+
+		        const subclass = characterData.subclass || 'Unknown';
+		        console.log("Subclass:", subclass);
+
+		        const discipline = characterData.discipline || 'Unknown';
+		        console.log("Discipline:", discipline);
+
+		        const stats = characterData.stats || {
+		            Strength: 'Unknown',
+		            Dexterity: 'Unknown',
+		            Constitution: 'Unknown',
+		            Intelligence: 'Unknown',
+		            Wisdom: 'Unknown',
+		            Charisma: 'Unknown'
+		        };
+		        console.log("Ability Scores:", stats);
+
+		        const skills = characterData.skills || ['Unknown'];
+		        console.log("Skills:", skills);
+
+		        if (!Array.isArray(skills)) {
+		            console.error("Skills is not an array:", skills);
+		            throw new TypeError("Skills should be an array");
+		        }
+
+		        const hp = characterData.hp !== undefined ? characterData.hp : 'Unknown';
+		        console.log("HP:", hp);
+
+		        const mp = characterData.mp !== null ? characterData.mp : 'N/A';
+		        console.log("MP:", mp);
+
+		        const backstory = characterData.backstory ? characterData.backstory.replace(/\n/g, '<br>') : 'Unknown';
+		        console.log("Backstory:", backstory);
+
+		        const inventory = characterData.inventory || { items: ['Unknown'] };
+		        console.log("Inventory:", inventory);
+
+		        if (!inventory.items || !Array.isArray(inventory.items)) {
+		            console.error("Inventory items is not defined or not an array:", inventory.items);
+		            throw new TypeError("Inventory items should be an array");
+		        }
+
+		        const level = characterData.level !== undefined ? characterData.level : 'Unknown';
+		        console.log("Level:", level);
+
+		        const xp = characterData.xp !== undefined ? characterData.xp : 'Unknown';
+		        console.log("XP:", xp);
+
+		        const starting_zone = characterData.starting_zone || {
+		            name: 'Unknown',
+		            description: 'Unknown',
+		            primary_races: ['Unknown'],
+		            primary_classes: ['Unknown'],
+		            last_updated: 'Unknown',
+		        };
+		        console.log("Starting Zone:", starting_zone);
+
+		        if (!Array.isArray(starting_zone.primary_races) || !Array.isArray(starting_zone.primary_classes)) {
+		            console.error("Primary races or classes are not arrays:", starting_zone);
+		            throw new TypeError("Primary races and classes should be arrays");
+		        }
+
+		        const starting_subzone = characterData.starting_subzone || {
+		            name: 'Unknown',
+		            description: 'Unknown',
+		            primary_races: ['Unknown'],
+		            primary_classes: ['Unknown'],
+		        };
+		        console.log("Starting Subzone:", starting_subzone);
+
+		        if (!Array.isArray(starting_subzone.primary_races) || !Array.isArray(starting_subzone.primary_classes)) {
+		            console.error("Primary races or classes are not arrays:", starting_subzone);
+		            throw new TypeError("Primary races and classes should be arrays");
+		        }
+
+		        // Construct the HTML content
+		        let detailsHtml = `
+		            <p><strong>Name:</strong> ${name}</p>
+		            <p><strong>Race:</strong> ${race}</p>
+		            <p><strong>Class:</strong> ${charClass}</p>
+		            <p><strong>Subclass:</strong> ${subclass}</p>
+		            <p><strong>Discipline:</strong> ${discipline}</p>
+		            <p><strong>Level:</strong> ${level}</p>  <!-- New field -->
+		            <p><strong>XP:</strong> ${xp}</p>  <!-- New field -->
+		            <p><strong>Ability Scores:</strong></p>
+		            <ul>
+		                <li>Strength: ${stats.Strength}</li>
+		                <li>Dexterity: ${stats.Dexterity}</li>
+		                <li>Constitution: ${stats.Constitution}</li>
+		                <li>Intelligence: ${stats.Intelligence}</li>
+		                <li>Wisdom: ${stats.Wisdom}</li>
+		                <li>Charisma: ${stats.Charisma}</li>
+		            </ul>
+		            <p><strong>Skills:</strong> ${skills.join(', ')}</p>
+		            <p><strong>HP:</strong> ${hp}</p>
+		            <p><strong>MP:</strong> ${mp}</p>
+		            <p><strong>Backstory:</strong> ${backstory}</p>
+		            <p><strong>Inventory:</strong> ${inventory.items.join(', ')}</p>
+		            <p><strong>Starting Zone:</strong></p>
+		            <ul>
+		                <li><strong>Name:</strong> ${starting_zone.name}</li>
+		                <li><strong>Description:</strong> ${starting_zone.description}</li>
+		                <li><strong>Primary Races:</strong> ${starting_zone.primary_races.join(', ')}</li>
+		                <li><strong>Primary Classes:</strong> ${starting_zone.primary_classes.join(', ')}</li>
+		                <li><strong>Last Updated:</strong> ${starting_zone.last_updated}</li>
+		            </ul>
+		            <p><strong>Starting Subzone:</strong></p>
+		            <ul>
+		                <li><strong>Name:</strong> ${starting_subzone.name}</li>
+		                <li><strong>Description:</strong> ${starting_subzone.description}</li>
+		                <li><strong>Primary Races:</strong> ${starting_subzone.primary_races.join(', ')}</li>
+		                <li><strong>Primary Classes:</strong> ${starting_subzone.primary_classes.join(', ')}</li>
+		            </ul>
+		        `;
+
+		        characterDetailsDiv.innerHTML = detailsHtml;
+		    } catch (error) {
+		        console.error("Error updating game state:", error);
+		    }
+		}
+		// end of updateGameState
+		
+		async function initializeExploration() {
+		    const characterNameInput = document.getElementById('explore-character-name-input');
+		    const characterName = characterNameInput.value;
+
+		    if (characterName.trim() === '') {
+		        alert("Please enter a character name.");
+		        return;
+		    }
+
+		    try {
+		        console.log("Initializing exploration for character:", characterName);
+
+		        const response = await fetch('/api/initialize_exploration', {
+		            method: 'POST',
+		            headers: {
+		                'Content-Type': 'application/json'
+		            },
+		            body: JSON.stringify({ name: characterName })
+		        });
+
+		        if (!response.ok) {
+		            const errorData = await response.json();
+		            console.error("Error response data:", errorData);
+		            throw new Error(errorData.message || 'Network response was not ok');
+		        }
+
+		        const data = await response.json();
+		        console.log("Response data:", data);
+
+		        const conversationDiv = document.getElementById('conversation');
+		        const assistantMessageDiv = document.createElement('div');
+		        assistantMessageDiv.classList.add('message', 'assistant-message');
+		        const parsedMessage = marked.parse(data.message.split('```json')[0]); // Split and remove JSON part
+		        assistantMessageDiv.innerHTML = parsedMessage;
+		        conversationDiv.appendChild(assistantMessageDiv);
+
+		        document.getElementById('start-input-container').style.display = 'none';
+		        document.getElementById('explore-input-container').style.display = 'none';
+		        document.getElementById('message-input-container').style.display = 'block';
+
+		        // Update game state with character data
+		        updateGameState(JSON.stringify(data.character_data));
+		    } catch (error) {
+		        console.error("Error initializing exploration:", error);
+		        alert(error.message);
+		    }
+		}
+
+    </script>
+</body>
+</html>

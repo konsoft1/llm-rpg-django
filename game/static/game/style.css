@@ -1,0 +1,256 @@
+body {
+    font-family: 'Lora', serif;
+    font-size: 18px;
+    display: flex;
+    flex-direction: row;
+    margin: 0;
+    height: 100vh;
+    overflow: hidden;
+}
+h3 {
+	margin:0;	
+}
+ol {
+	margin:0;
+}
+input, textarea {
+    margin-bottom: 10px;
+    font-size: 17px;
+    padding: 10px;
+}
+textarea {
+    width: calc(100% - 22px);
+    height: 80px;
+    font-size: 17px;
+}
+small {
+	opacity: 0.5;
+}
+.sidebar, .content {
+    overflow: auto;
+    height: calc(100vh - 40px); /* Adjust the 40px based on header/footer if any */
+    box-sizing: border-box;
+}
+
+.content {
+    flex: 1;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+	padding:20px;
+}
+.conversation-container {
+    flex: 1;
+    overflow-y: auto;
+}
+.sidebar {
+    width: 300px;
+    border-left: 1px solid #ccc;
+	padding-left: 20px;
+    position: sticky;
+    top: 0;
+    height: 100vh;
+    overflow-y: auto;
+}
+#character-details p, #character-details li {
+	font-size:15px;
+	margin: 5px;
+}
+.message {
+    margin: 10px 0;
+    padding-top: 10px;
+    white-space: normal;
+    line-height: 1.6em;
+}
+.message p, .message ul {
+    margin: 8px 0;
+}
+.user-message {
+    padding-bottom: 0px;
+}
+.light-theme {
+    background-color: white;
+    color: black;
+}
+/*.light-theme .message {
+    border-bottom: 1px solid #ccc;
+}*/
+.light-theme .user-message {
+    color: #004080; /* Darker blue for light theme */
+}
+.light-theme .assistant-message {
+    color: #4c014b;
+}
+.light-theme input, .light-theme textarea, .light-theme button {
+    background-color: white;
+    color: black;
+    border: 1px solid #ccc;
+}
+.light-theme .sidebar {
+    background-color: #f8f8f8;
+    color: black;
+}
+.dark-theme {
+    background-color: #121212;
+    color: white;
+}
+.dark-theme .user-message {
+    color: #accfdd;
+}
+.dark-theme .assistant-message {
+    color: #d4cca2;
+}
+.npc-name {
+    color: #dfbce7;
+    font-weight: bold;
+}
+.quest-name {
+	color: #99deb4;
+	font-weight: bold;
+}
+.dark-theme input, .dark-theme textarea, .dark-theme button {
+    background-color: #333;
+    color: white;
+    border: 1px solid #555;
+}
+.dark-theme .sidebar {
+    background-color: #1e1e1e;
+    color: white;
+}
+.sticky-prompt {
+    position: sticky;
+    bottom: 0;
+    background: white;
+    padding: 10px 20px;
+    border-top: 1px solid #ccc;
+}
+.dark-theme .sticky-prompt {
+    background: #1e1e1e;
+    border-top: 1px solid #333;
+}
+#message-input-container {
+    display: none;
+}
+.loading-spinner {
+    display: flex;
+    /* justify-content: center; */
+    align-items: center;
+    margin: 10px 0;
+    height: 40px;
+}
+
+.loading-spinner .spark {
+    width: 8px;
+    height: 8px;
+    background-color: #ffd700; /* Gold color */
+    margin: 0 5px;
+    border-radius: 50%;
+    animation: spark-animation 1.4s infinite ease-in-out both;
+}
+
+.loading-spinner .spark:nth-child(1) {
+    animation-delay: -0.32s;
+}
+
+.loading-spinner .spark:nth-child(2) {
+    animation-delay: -0.16s;
+}
+
+@keyframes spark-animation {
+    0%, 80%, 100% {
+        transform: scale(0);
+    }
+    40% {
+        transform: scale(1);
+    }
+}
+
+#theme-toggle-container {
+    position: fixed;
+    top: 20px; /* Adjust this value if needed */
+    right: 20px; /* Adjust this value if needed */
+    margin: 0;
+    z-index: 1000; /* Ensure it is above other elements */
+}
+
+.toggle-switch {
+    width: 38px; /* Scaled down from 60px by 30% */
+    height: 21px; /* Scaled down from 30px by 30% */
+    background-color: #3498db; /* Blue color for light mode */
+    border-radius: 10.5px; /* Scaled down from 15px by 30% */
+    position: relative;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.toggle-switch.dark-mode {
+    background-color: #ffd700; /* Yellow color for dark mode */
+}
+
+.toggle-switch .toggle-handle {
+    width: 18px; /* Scaled down from 26px by 30% */
+    height: 18px; /* Scaled down from 26px by 30% */
+    background-color: white;
+    border-radius: 50%;
+    position: absolute;
+    top: 1.5px; /* Scaled down from 2px by 30% */
+    left: 1.5px; /* Scaled down from 2px by 30% */
+    transition: left 0.3s;
+    z-index: 100;
+}
+
+.toggle-switch.dark-mode .toggle-handle {
+    left: 18px; /* Scaled down from 32px by 30% */
+}
+
+/* Sun shape */
+.sun {
+    position: absolute;
+    top: 6px; /* Scaled down from 6px by 30% */
+    left: 5px; /* Position on the left */
+    width: 9px; /* Scaled down from 12px by 30% */
+    height: 8.4px; /* Scaled down from 12px by 30% */
+    border-radius: 50%;
+    background-color: white;
+    transition: opacity 0.3s;
+}
+
+/* Crescent moon shape */
+.moon {
+    position: absolute;
+    top: 5px; /* Scaled down from 6px by 30% */
+    right: 8px; /* Position on the right */
+    width: 8.4px; /* Scaled down from 12px by 30% */
+    height: 8.4px; /* Scaled down from 12px by 30% */
+    border-radius: 50%;
+    background-color: #3498db; /* Match background color to blend */
+    box-shadow: -2px -2px 0 white; /* Scaled down from 5px by 30% */
+    transform: rotate(150deg); /* Flip the moon */
+    transition: opacity 0.3s;
+}
+
+.toggle-switch.dark-mode .moon {
+    opacity: 0; /* Hide the moon in dark mode */
+}
+
+/* conversation input buttons */
+.buttons-container {
+    display: flex;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.buttons-container button {
+    padding: 10px 20px;
+    font-size: 16px;
+    cursor: pointer;
+    border: none;
+    border-radius: 5px;
+    background-color: #3498db;
+    color: white;
+    transition: background-color 0.3s;
+}
+
+.buttons-container button:hover {
+    background-color: #2980b9;
+}
